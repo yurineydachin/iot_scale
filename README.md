@@ -1,6 +1,8 @@
 # iot_scale
 IoT vibe coding
 
+[YC IoT docs](https://yandex.cloud/ru/docs/iot-core/operations/)
+
 Subscribe command results
 ```
 yc --profile prod iot mqtt subscribe --cert credentials/cert.pem --key credentials/key.pem -t '$devices/are0b0rpeijg822eirct/events/status'
