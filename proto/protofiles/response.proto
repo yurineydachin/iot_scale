@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package iot.backend.proto;
+
+import "error.proto";
+import "response_payload.proto";
+
+message Response {
+    string chain_id = 1;
+    ResultCode result = 2;
+
+    oneof details {
+        ErrorDescription error_description = 3;
+        ResponsePayload payload = 4;
+    }
+}

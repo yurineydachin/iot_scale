@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package iot.backend.proto;
+
+// The file describes Protobuf schema for all commands sent from Telematic service to IoT
+
+/* 
+The IoT is considered as a couple of variables (parameters). 
+Some of them are modifiable, some are not. 
+*/
+
+// To add new command type find an #ADD_NEW_COMMAND tag,
+// and follow the instructions
+
+message CommandPayload {
+    oneof command {
+        CmdConfigure configure = 2;
+        CmdSetState set_state = 3;
+        CmdSetParams set_params = 4;
+        CmdGetParams get_params = 5;
+        CmdPing ping = 6;
+    };
+}
+
+/*
+Configuration
+
+It's a kind of macros. With this command one could define a dictionary of 
+parameters and values that should be set if device switches to the state.
+
+Example:
+{
+    "state_riding": {
+        "engine_lock": "disable",
+        "scooter_lock": "unlock",
+        "dashboard_color": "white",
+        "dashboard_effect": "breathing",
+        "speed_limit": 25
+    },
+    "state_service": {
+        "engine_lock": "disable",
+        "scooter_lock": "unlock",
+        "dashboard_color": "red",
+        "dashboard_effect": "breathing",
+        "speed_limit": 5
+    }
+}
+*/
+message CmdConfigure {
+    message StateDescription {
+        map<string, string> state_params = 1;
+    }
+    
+    string state_name = 1;
+    map<string, StateDescription> states = 2;   
+}
+
+/*
+Switches an IoT to the particular state. 
+The state should be previously defined by the CmdConfigure 
+*/
+message CmdSetState {
+    string state = 1;   
+}
+
+/*
+Set (change) a couple of parameters
+*/
+message CmdSetParams {
+    map<string, string> params = 1;   
+}
+
+/*
+Get a couple if values from the IoT
+*/
+message CmdGetParams {
+    repeated string param = 1;   
+}
+
+/*
+Simple ping message
+*/
+message CmdPing {
+}

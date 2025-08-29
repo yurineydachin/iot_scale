@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package iot.backend.proto;
+
+enum ResultCode {
+    RESULT_UNSPECIFIED = 0;         // For protobufs it's a good practice to set a zero item of enum as "unspecified"
+    RESULT_SUCCESS = 1;             
+    RESULT_FAILED = 2;              // If resource is unavailbale now
+}
+
+enum ErrorCode {
+    STATUS_UNSPECIFIED = 0;         // For protobufs it's a good practice to set a zero item of enum as "unspecified"
+    STATUS_OK = 1;                  // OK
+    STATUS_NOT_IMPLEMENTED = 2;     // The command has not been implemented yet
+    STATUS_UNAVAILABLE = 3;         // If resource is unavailable now
+    STATUS_OUTDATED = 4;            // If the command was received too late (after deadline)
+    STATUS_OTHER = 5;               // Unknown error (see the message in details)
+    STATUS_PACKET_INVALID = 6;      // Packet validation failed
+}
+
+message ErrorDescription {
+    optional string message = 1;
+    optional ErrorCode status = 2;
+}

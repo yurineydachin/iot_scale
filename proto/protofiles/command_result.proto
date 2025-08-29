@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package iot.backend.proto;
+
+import "error.proto";
+import "command_result_payload.proto";
+
+message CommandResult {
+    string chain_id = 1;
+    ResultCode result = 2;
+
+    oneof details {
+        ErrorDescription error_description = 3;
+        CommandResultPayload payload = 4;
+    }
+    
+    optional int32 cmd_delivery_time = 5;   // Seconds (we don't have information to be more precise)
+    optional int32 cmd_execution_time_ms = 6; // milliseconds
+    optional string prev_chain_id = 7;      // Previous executed command
+}

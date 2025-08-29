@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package iot.backend.proto;
+
+message CommandResultPayload {
+    oneof command {
+        CmdResultConfigure configure = 2;
+        CmdResultSetState set_state = 3;
+        CmdResultSetParams set_params = 4;
+        CmdResultGetParams get_params = 5;
+        CmdResultPing ping = 6;
+    };
+}
+
+message CmdResultConfigure {}
+message CmdResultSetState {}
+
+message CmdResultSetParams {
+    map<string, string> errors = 2;   
+}
+
+message CmdResultGetParams {
+    map<string, string> values = 1;   
+    map<string, string> errors = 2;   
+}
+
+message CmdResultPing {}

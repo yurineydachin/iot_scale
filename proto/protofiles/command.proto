@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package iot.backend.proto;
+
+import "command_payload.proto";
+
+// The file describes Protobuf schema for all commands sent from Telematic service to IoT
+
+// Top level schema for any command
+message Command {
+    string chain_id = 1;            // Command sequence id
+    CommandPayload payload = 2;     // Application-layer data
+}

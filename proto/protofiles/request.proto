@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package iot.backend.proto;
+
+import "request_payload.proto";
+
+message Request {
+    string chain_id = 1;            // Command sequence id
+    RequestPayload payload = 2;     // Application-layer data
+}

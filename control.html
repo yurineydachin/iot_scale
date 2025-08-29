@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bike Control Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        input, button {
+            padding: 10px;
+            font-size: 16px;
+        }
+        button {
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bike Control Panel</h1>
+    <div class="control-panel">
+        <select id="bikeSelect" onchange="updateBikeId()">
+            <option value="">Select a bike</option>
+            <option value="sc1">sc1</option>
+            <option value="YA003T">YA003T</option>
+        </select>
+        <input type="text" id="bikeId" placeholder="Or enter Bike ID manually" required>
+        
+        <button onclick="sendCommand('lock')">Lock Bike</button>
+        <button onclick="sendCommand('unlock')">Unlock Bike</button>
+        <button onclick="sendCommand('battery_unlock')">Unlock Battery</button>
+        
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        const bikeIdMap = {
+            'sc1': 'areq2k9lt3idaohrpmhl',
+            'YA003T': 'are0b0rpeijg822eirct'
+        };
+
+        function updateBikeId() {
+            const select = document.getElementById('bikeSelect');
+            const input = document.getElementById('bikeId');
+            if (select.value) {
+                input.value = bikeIdMap[select.value] || select.value;
+            }
+        }
+
+        function sendCommand(action) {
+            let bikeId = document.getElementById('bikeId').value;
+            // Check if the entered ID matches any of our mapped values
+            for (const [displayId, mappedId] of Object.entries(bikeIdMap)) {
+                if (bikeId === displayId) {
+                    bikeId = mappedId;
+                    break;
+                }
+            }
+            if (!bikeId) {
+                showStatus('Please enter a Bike ID', 'error');
+                return;
+            }
+
+            const host = window.location.hostname || 'localhost';
+            const endpoint = `http://${host}:8081/bike/${action}`;
+            const statusEl = document.getElementById('status');
+            
+            const url = `${endpoint}?bike_id=${encodeURIComponent(bikeId)}`;
+            fetch(url, {
+                mode: 'cors',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(text || 'Request failed');
+                    });
+                }
+                return response.text();
+            })
+            .then(text => {
+                showStatus(`Success: ${text}`, 'success');
+            })
+            .catch(error => {
+                showStatus(`Error: ${error.message}. Make sure the server is running on port 8081.`, 'error');
+                console.error('Error:', error);
+            });
+        }
+
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+    </script>
+</body>
+</html>

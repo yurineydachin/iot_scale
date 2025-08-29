@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package iot.backend.proto;
+
+import "command.proto";
+import "command_result.proto";
+import "telemetry.proto";
+import "request.proto";
+import "response.proto";
+import "notification.proto";
+
+/* 
+Important note: some fields are marked as optional
+In Protobuf specification ANY field is optional.
+The optional keyword is a kind of std::optional in C++, 
+allowing to figure out if the value was explicitly 
+ommitted/unset by a sender.
+A field not marked as optional will always have a 
+default value if it was not provided by the sender.
+*/ 
+
+message Packet {
+    uint32 version = 1;             // 4-bytes of version. 2 high bytes - major version, 2 lower bytes - minor part.
+    uint64 timestamp = 2;           // Timestamp in seconds since Epoch (UTC)
+    optional uint64 valid_until = 3;// Command deadline in seconds since Epoch (UTC). 
+                                    // If the packet received after this time, it should NOT be processed. 
+
+    // Чтобы добавить поддержку нового типа пакета, ищи тэг #ADD_NEW_PACKET и делай,
+    // как там написано
+    oneof what {
+        Command command = 4;
+        CommandResult command_result = 5;
+        Telemetry telemetry = 6;
+        Request request = 7;
+        Response response = 8;
+        Notification notification = 9;
+    }
+};
+
+/*
+A testing packet to check backward compatibility of the protocol
+We are expecting, given:
+
+Packet.v1 (1 optional field) and Packet.v2 (2 optional fields)
+Consider both versions having values for all their properties set.
+
+- Packet.v1 -> Packet.v2 (binary, json)
+- Packet.v2 -> Packet.v1 (binary)
+IMPORTANT!!! - JSON.v2 -> Packet.v1 will fail in this case
+*/
+message PacketTest {
+    uint32 version = 1;
+    uint64 timestamp = 2;
+}

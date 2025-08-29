@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package iot.backend.proto;
+
+import "telemetry_payload.proto";
+
+message Telemetry {
+    TelemetryPayload payload = 1;
+}

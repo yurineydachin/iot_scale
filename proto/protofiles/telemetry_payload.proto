@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package iot.backend.proto;
+
+message TelemetryPayload {
+    message Location {
+        float lat = 1;
+        float lon = 2;
+        uint64 utc_time_ms = 3;
+        uint32 satellites_amount = 4;
+        float hdop = 5;
+        uint32 altitude_meters = 6;
+        bool valid = 8;
+        optional float speed = 9;
+    }
+
+    optional uint32 battery_level = 1;          // Battery level, %%
+    optional float speed_kmh = 2;               // Current device speed, km/h
+    optional Location location = 3;             // Current bike position
+    optional uint32 voltage = 4;                // Current internal voltage, V * 100
+    optional uint32 gsm_signal_level = 5;       // Level of GSM signal, %%
+    optional bool charging = 6;                 // Charging / not charging
+    optional bool locked = 7;                   // Locked / Unlocked
+
+    map<string, string> sensors = 15;           // Other sensors
+}
