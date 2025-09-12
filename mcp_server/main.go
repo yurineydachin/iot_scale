@@ -10,8 +10,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/harriteja/mcp-go-sdk/pkg/server"
-	"github.com/harriteja/mcp-go-sdk/pkg/server/transport/stdio"
+	gintransport "github.com/harriteja/mcp-go-sdk/pkg/server/transport/gin"
 	"github.com/harriteja/mcp-go-sdk/pkg/types"
 
 	iotpb "iot_scale/proto"
@@ -100,6 +101,9 @@ func main() {
 		Name:    "mcp-server-with-mqtt",
 		Version: "1.0.0",
 	})
+	if err != nil {
+		log.Fatalf("failed to create server: %v", err)
+	}
 	s.OnListTools(func(ctx context.Context) ([]types.Tool, error) {
 		return []types.Tool{
 			{
@@ -133,8 +137,9 @@ func main() {
 			paramName = "vehicle_lock"
 			paramValue = "unlocked"
 		case "send_command":
-			paramName = args["command"].(string)
-			if paramName == "" {
+			if cmd, ok := args["command"].(string); ok && cmd != "" {
+				paramName = cmd
+			} else {
 				return nil, fmt.Errorf("command param is requied")
 			}
 			// For send_command, we might not have a value
@@ -144,16 +149,19 @@ func main() {
 
 		return sendCommand(paramName, paramValue)
 	})
-	if err != nil {
-		log.Fatalf("failed to create server: %v", err)
-	}
 
-	// Create stdio transport
-	transport := stdio.New(s, stdio.Options{})
+	// Create gin router
+	router := gin.Default()
+
+	// Create gin transport
+	transport := gintransport.New(s, nil)
+
+	// Register gin transport handlers
+	transport.RegisterRoutes(router)
 
 	// Start the server
-	log.Printf("Starting stdio server")
-	if err := transport.Start(); err != nil {
+	log.Printf("Starting gin server on :8080")
+	if err := router.Run(":8080"); err != nil {
 		log.Printf("Failed to serve: " + err.Error())
 	}
 }
