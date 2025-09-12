@@ -3,5 +3,6 @@
   "cert_file": "../credentials/cert.pem",
   "key_file": "../credentials/key.pem",
   "root_ca_file": "../credentials/rootCA.crt",
-  "client_id": "mcp_server"
+  "client_id": "mcp_server",
+  "device_id": "..."
 }

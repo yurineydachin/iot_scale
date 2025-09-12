@@ -1,14 +1,18 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"time"
+
+	"github.com/harriteja/mcp-go-sdk/pkg/server"
+	"github.com/harriteja/mcp-go-sdk/pkg/server/transport/stdio"
+	"github.com/harriteja/mcp-go-sdk/pkg/types"
 
 	iotpb "iot_scale/proto"
 
@@ -23,6 +27,7 @@ type Config struct {
 	KeyFile    string `json:"key_file"`
 	RootCAFile string `json:"root_ca_file"`
 	ClientID   string `json:"client_id"`
+	DeviceID   string `json:"device_id"`
 }
 
 var (
@@ -77,68 +82,6 @@ func connectMQTT() (mqtt.Client, error) {
 	return client, nil
 }
 
-func sendCommandHandler(w http.ResponseWriter, r *http.Request) {
-	deviceID := r.URL.Query().Get("device_id")
-	if deviceID == "" {
-		http.Error(w, "device_id parameter is required", http.StatusBadRequest)
-		return
-	}
-	paramName := r.URL.Query().Get("param")
-	if paramName == "" {
-		http.Error(w, "param parameter is required", http.StatusBadRequest)
-		return
-	}
-	paramValue := r.URL.Query().Get("value")
-
-	cmdPayload := &iotpb.CommandPayload{}
-	if paramValue != "" {
-		cmdPayload.Command = &iotpb.CommandPayload_SetParams{SetParams: &iotpb.CmdSetParams{
-			Params: map[string]string{paramName: paramValue},
-		}}
-	} else {
-		cmdPayload.Command = &iotpb.CommandPayload_GetParams{GetParams: &iotpb.CmdGetParams{
-			Param: []string{paramName},
-		}}
-	}
-
-	cmd := &iotpb.Command{
-		ChainId: uuid.New().String(),
-		Payload: cmdPayload,
-	}
-
-	validUntil := uint64(time.Now().Add(5 * time.Minute).Unix())
-	pkt := &iotpb.Packet{
-		Version:    0x00010000,
-		Timestamp:  uint64(time.Now().Unix()),
-		ValidUntil: &validUntil,
-		What:       &iotpb.Packet_Command{Command: cmd},
-	}
-
-	if mqttClient != nil && mqttClient.IsConnected() {
-		topic := fmt.Sprintf("$devices/%s/commands/command", deviceID)
-		log.Printf("Sending command to device %s: %s=%s", deviceID, paramName, paramValue)
-
-		jsonData, err := protojson.Marshal(pkt)
-		if err != nil {
-			log.Printf("Failed to marshal packet to JSON: %v", err)
-		} else {
-			log.Printf("MQTT packet JSON: %s", string(jsonData))
-		}
-
-		token := mqttClient.Publish(topic, 1, false, jsonData)
-		token.Wait()
-		if token.Error() != nil {
-			log.Printf("Failed to publish MQTT message to %s: %v", topic, token.Error())
-			http.Error(w, "Failed to send command", http.StatusInternalServerError)
-			return
-		}
-		log.Printf("Successfully sent command to device %s (topic: %s)", deviceID, topic)
-		fmt.Fprintf(w, "Command sent to device %s", deviceID)
-	} else {
-		http.Error(w, "MQTT client not connected", http.StatusServiceUnavailable)
-	}
-}
-
 func main() {
 	log.Println("Starting MCP Server...")
 
@@ -153,13 +96,108 @@ func main() {
 	}
 	log.Println("Successfully connected to MQTT broker")
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "MCP Server is running!")
+	s, err := server.New(&server.Options{
+		Name:    "mcp-server-with-mqtt",
+		Version: "1.0.0",
 	})
-	http.HandleFunc("/send_command", sendCommandHandler)
+	s.OnListTools(func(ctx context.Context) ([]types.Tool, error) {
+		return []types.Tool{
+			{
+				Name:        "lock",
+				Description: "Lock the device",
+			},
+			{
+				Name:        "unlock",
+				Description: "Unlock the device",
+			},
+			{
+				Name:        "send_command",
+				Description: "Send a command to the device",
+				Parameters: &types.Parameters{
+					Type: "object",
+					Properties: map[string]types.Parameter{
+						"command": {Type: "string", Description: "The command to send"},
+					},
+				},
+			},
+		}, nil
+	})
 
-	log.Println("MCP Server listening on port 8082")
-	if err := http.ListenAndServe(":8082", nil); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	s.OnCallTool(func(ctx context.Context, name string, args map[string]interface{}) (interface{}, error) {
+		paramName, paramValue := "", ""
+		switch name {
+		case "lock":
+			paramName = "vehicle_lock"
+			paramValue = "locked"
+		case "unlock":
+			paramName = "vehicle_lock"
+			paramValue = "unlocked"
+		case "send_command":
+			paramName = args["command"].(string)
+			if paramName == "" {
+				return nil, fmt.Errorf("command param is requied")
+			}
+			// For send_command, we might not have a value
+		default:
+			return nil, fmt.Errorf("unknown tool")
+		}
+
+		cmdPayload := &iotpb.CommandPayload{}
+		if paramValue != "" {
+			cmdPayload.Command = &iotpb.CommandPayload_SetParams{SetParams: &iotpb.CmdSetParams{
+				Params: map[string]string{paramName: paramValue},
+			}}
+		} else {
+			cmdPayload.Command = &iotpb.CommandPayload_GetParams{GetParams: &iotpb.CmdGetParams{
+				Param: []string{paramName},
+			}}
+		}
+
+		cmd := &iotpb.Command{
+			ChainId: uuid.New().String(),
+			Payload: cmdPayload,
+		}
+
+		validUntil := uint64(time.Now().Add(5 * time.Minute).Unix())
+		pkt := &iotpb.Packet{
+			Version:    0x00010000,
+			Timestamp:  uint64(time.Now().Unix()),
+			ValidUntil: &validUntil,
+			What:       &iotpb.Packet_Command{Command: cmd},
+		}
+
+		if mqttClient != nil && mqttClient.IsConnected() {
+			topic := fmt.Sprintf("$devices/%s/commands/command", config.DeviceID)
+			log.Printf("Sending command to device %s: %s=%s", config.DeviceID, paramName, paramValue)
+
+			jsonData, err := protojson.Marshal(pkt)
+			if err != nil {
+				log.Printf("Failed to marshal packet to JSON: %v", err)
+				return nil, fmt.Errorf("Failed to marshal packet to JSON")
+			}
+
+			token := mqttClient.Publish(topic, 1, false, jsonData)
+			token.Wait()
+			if token.Error() != nil {
+				log.Printf("Failed to publish MQTT message to %s: %v", topic, token.Error())
+				return nil, fmt.Errorf("Failed to send command")
+			}
+			log.Printf("Successfully sent command to device %s (topic: %s)", config.DeviceID, topic)
+			return "Command sent", nil
+		}
+
+		return nil, fmt.Errorf("MQTT client not connected")
+	})
+	if err != nil {
+		log.Fatalf("failed to create server: %v", err)
+	}
+
+	// Create stdio transport
+	transport := stdio.New(s, stdio.Options{})
+
+	// Start the server
+	log.Printf("Starting stdio server")
+	if err := transport.Start(); err != nil {
+		log.Printf("Failed to serve: " + err.Error())
 	}
 }
