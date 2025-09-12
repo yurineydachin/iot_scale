@@ -1,0 +1,7 @@
+{
+  "broker_url": "ssl://mqtt.cloud.yandex.net:8883",
+  "cert_file": "../credentials/cert.pem",
+  "key_file": "../credentials/key.pem",
+  "root_ca_file": "../credentials/rootCA.crt",
+  "client_id": "mcp_server"
+}
