@@ -1,5 +1,7 @@
 # IoT Scale
 
+[YC IoT docs](https://yandex.cloud/ru/docs/iot-core/operations/)
+
 This document describes the commands that can be sent to the IoT Scale device via an MQTT client.
 
 ## Subscribing to Device Events
