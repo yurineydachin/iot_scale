@@ -142,51 +142,7 @@ func main() {
 			return nil, fmt.Errorf("unknown tool")
 		}
 
-		cmdPayload := &iotpb.CommandPayload{}
-		if paramValue != "" {
-			cmdPayload.Command = &iotpb.CommandPayload_SetParams{SetParams: &iotpb.CmdSetParams{
-				Params: map[string]string{paramName: paramValue},
-			}}
-		} else {
-			cmdPayload.Command = &iotpb.CommandPayload_GetParams{GetParams: &iotpb.CmdGetParams{
-				Param: []string{paramName},
-			}}
-		}
-
-		cmd := &iotpb.Command{
-			ChainId: uuid.New().String(),
-			Payload: cmdPayload,
-		}
-
-		validUntil := uint64(time.Now().Add(5 * time.Minute).Unix())
-		pkt := &iotpb.Packet{
-			Version:    0x00010000,
-			Timestamp:  uint64(time.Now().Unix()),
-			ValidUntil: &validUntil,
-			What:       &iotpb.Packet_Command{Command: cmd},
-		}
-
-		if mqttClient != nil && mqttClient.IsConnected() {
-			topic := fmt.Sprintf("$devices/%s/commands/command", config.DeviceID)
-			log.Printf("Sending command to device %s: %s=%s", config.DeviceID, paramName, paramValue)
-
-			jsonData, err := protojson.Marshal(pkt)
-			if err != nil {
-				log.Printf("Failed to marshal packet to JSON: %v", err)
-				return nil, fmt.Errorf("Failed to marshal packet to JSON")
-			}
-
-			token := mqttClient.Publish(topic, 1, false, jsonData)
-			token.Wait()
-			if token.Error() != nil {
-				log.Printf("Failed to publish MQTT message to %s: %v", topic, token.Error())
-				return nil, fmt.Errorf("Failed to send command")
-			}
-			log.Printf("Successfully sent command to device %s (topic: %s)", config.DeviceID, topic)
-			return "Command sent", nil
-		}
-
-		return nil, fmt.Errorf("MQTT client not connected")
+		return sendCommand(paramName, paramValue)
 	})
 	if err != nil {
 		log.Fatalf("failed to create server: %v", err)
@@ -200,4 +156,52 @@ func main() {
 	if err := transport.Start(); err != nil {
 		log.Printf("Failed to serve: " + err.Error())
 	}
+}
+
+func sendCommand(paramName, paramValue string) (interface{}, error) {
+	cmdPayload := &iotpb.CommandPayload{}
+	if paramValue != "" {
+		cmdPayload.Command = &iotpb.CommandPayload_SetParams{SetParams: &iotpb.CmdSetParams{
+			Params: map[string]string{paramName: paramValue},
+		}}
+	} else {
+		cmdPayload.Command = &iotpb.CommandPayload_GetParams{GetParams: &iotpb.CmdGetParams{
+			Param: []string{paramName},
+		}}
+	}
+
+	cmd := &iotpb.Command{
+		ChainId: uuid.New().String(),
+		Payload: cmdPayload,
+	}
+
+	validUntil := uint64(time.Now().Add(5 * time.Minute).Unix())
+	pkt := &iotpb.Packet{
+		Version:    0x00010000,
+		Timestamp:  uint64(time.Now().Unix()),
+		ValidUntil: &validUntil,
+		What:       &iotpb.Packet_Command{Command: cmd},
+	}
+
+	if mqttClient != nil && mqttClient.IsConnected() {
+		topic := fmt.Sprintf("$devices/%s/commands/command", config.DeviceID)
+		log.Printf("Sending command to device %s: %s=%s", config.DeviceID, paramName, paramValue)
+
+		jsonData, err := protojson.Marshal(pkt)
+		if err != nil {
+			log.Printf("Failed to marshal packet to JSON: %v", err)
+			return nil, fmt.Errorf("Failed to marshal packet to JSON")
+		}
+
+		token := mqttClient.Publish(topic, 1, false, jsonData)
+		token.Wait()
+		if token.Error() != nil {
+			log.Printf("Failed to publish MQTT message to %s: %v", topic, token.Error())
+			return nil, fmt.Errorf("Failed to send command")
+		}
+		log.Printf("Successfully sent command to device %s (topic: %s)", config.DeviceID, topic)
+		return "Command sent", nil
+	}
+
+	return nil, fmt.Errorf("MQTT client not connected")
 }
